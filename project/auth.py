@@ -21,7 +21,7 @@ def login_post():
 
     # check if the user actually exists
     # take the user-supplied password and compare it with the stored password
-    if not user or not (user.password == password):
+    if not user or not check_password_hash(user.password, password):
         flash('Please check your login details and try again.')
         current_app.logger.warning("User login failed")
         return redirect(url_for('auth.login')) # if the user doesn't exist or password is wrong, reload the page
@@ -34,20 +34,33 @@ def login_post():
 def signup():
     return render_template('signup.html')
 
+def validParam(someField, validTokens):
+    for char in someField:
+        if (not char.isalpha()) and (not char.isdigit()) and (char not in validTokens):
+            return False
+    return True
+
 @auth.route('/signup', methods=['POST'])
 def signup_post():
     email = request.form.get('email')
     name = request.form.get('name')
     password = request.form.get('password')
 
+    if not validParam(email, ["@", "."]):
+        flash('Sus email')
+        current_app.logger.debug("Sus email")
+        return redirect(url_for('auth.signup'))
+    if not validParam(name, [" "]):
+        flash('Sus name')
+        current_app.logger.debug("Sus name")
+        return redirect(url_for('auth.signup'))
+
     user = db.session.execute(text('select * from user where email = "' + email +'"')).all()
     if len(user) > 0: # if a user is found, we want to redirect back to signup page so user can try again
         flash('Email address already exists')  # 'flash' function stores a message accessible in the template code.
         current_app.logger.debug("User email already exists")
         return redirect(url_for('auth.signup'))
-
-    # create a new user with the form data. TODO: Hash the password so the plaintext version isn't saved.
-    new_user = User(email=email, name=name, password=password)
+    new_user = User(email=email, name=name, password=generate_password_hash(password))
 
     # add the new user to the database
     db.session.add(new_user)
